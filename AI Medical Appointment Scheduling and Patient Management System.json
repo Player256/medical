@@ -1,0 +1,928 @@
+{
+  "name": "AI Medical Appointment Scheduling and Patient Management System",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Hello! I'm your AI assistant for scheduling medical appointments. I'll help you book an appointment with your doctor. To get started, please provide your full name.",
+        "options": {
+          "loadPreviousSession": "memory",
+          "title": "Medical Appointment Scheduling"
+        }
+      },
+      "id": "3cfec5d3-b61e-4b0f-ad54-eedf32937885",
+      "name": "Patient Chat Interface",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        80,
+        248
+      ],
+      "webhookId": "fca23b20-fa2e-4b58-9004-da6aa45a00f9"
+    },
+    {
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an AI-powered Medical Appointment Scheduling Assistant. \nYour responsibilities are to guide patients through the booking process in a professional, empathetic, and reliable manner.\n\nYour workflow:\n\n1. Patient Intake\n   - Collect and confirm patient details: Full Name, Date of Birth, Preferred Doctor, Location, Email.\n   - Validate all inputs for accuracy and completeness.\n\n2. Patient Lookup\n   - Search the EMR (Google Sheets) to determine if the patient is:\n     • New Patient → assign 60-minute appointment\n     • Returning Patient → assign 30-minute appointment\n   - If the patient is NEW, explicitly request their email address so a confirmation message, intake forms, and calendar link can be sent.\n  - If the patient is a returning then get their email as well.\n\n3. Smart Scheduling\n   - Check the doctor’s availability in Google Calendar.\n   - If no slot is available, suggest the nearest alternatives.\n\n\n4. Booking\n   - Book the appointment in Google Calendar.\n   - Generate a unique Booking ID and Timestamp.\n\n5. Insurance Collection\n   - Gather insurance details: Carrier, Member ID, Group Number.\n   - Validate the provided information.\n\n6. Confirmation & Admin Export\n   - For all patients: export appointment details to Google Sheets for admin review.\n   - For NEW patients: send confirmation email via Gmail with calendar link and intake form attached.\n   - For RETURNING patients: send confirmation email via Gmail with appointment details.\n\n7. Reminders & Follow-up\n   - Schedule 3 reminder emails:\n     • Reminder 1: Simple reminder.\n     • Reminder 2: Ask if intake forms are completed.\n     • Reminder 3: Confirm attendance or collect cancellation reason.\n\nGuidelines:\n- Always respond with empathy and professionalism.\n- Ask clarifying questions if data is missing or unclear.\n- Output structured JSON so downstream workflow nodes (Sheets, Calendar, Gmail) can process it.\n- Ensure that all responses are concise, clear, and actionable.\n"
+        }
+      },
+      "id": "e705bc4f-0010-4d11-a5e5-f1697422f245",
+      "name": "AI Scheduling Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        680,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "maxOutputTokens": 2048,
+          "temperature": 0.3
+        }
+      },
+      "id": "55baca29-2061-4bfb-8ebe-0f3ce4d3eaa8",
+      "name": "Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        432,
+        368
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "llhGyRd5nkSaScGD",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "id": "1daf18f3-3a30-4e94-b6c8-f443a23b28a9",
+      "name": "Conversation Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        560,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\": \"object\", \"properties\": {\"patientName\": {\"type\": \"string\"}, \"dateOfBirth\": {\"type\": \"string\"}, \n  \"email\" : {\"type\":\"string\"},\n  \"doctorName\": {\"type\": \"string\"}, \"location\": {\"type\": \"string\"}, \"appointmentDate\": {\"type\": \"string\"}, \"appointmentTime\": {\"type\": \"string\"}, \"duration\": {\"type\": \"number\"}, \"isNewPatient\": {\"type\": \"boolean\"}, \"insuranceCarrier\": {\"type\": \"string\"}, \"memberID\": {\"type\": \"string\"}, \"groupNumber\": {\"type\": \"string\"}, \"status\": {\"type\": \"string\"}}, \"required\": [\"patientName\", \"dateOfBirth\", \"doctorName\", \"appointmentDate\", \"appointmentTime\", \"duration\", \"isNewPatient\", \"status\"]}"
+      },
+      "id": "e694bdef-79c2-4eec-a46b-e7d0d026d726",
+      "name": "Appointment Data Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1072,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1BlTTpuwxp7uvlck4kJ_g2l9hKp19LVXZn6fn3I_VzEg/edit?gid=235291171#gid=235291171",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "patients",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BlTTpuwxp7uvlck4kJ_g2l9hKp19LVXZn6fn3I_VzEg/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "24a61db6-19d6-4a97-b609-81e43961f9d5",
+      "name": "Patient EMR Tool",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        688,
+        368
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "EdyTmyTXKxm3we3A",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "advarma2020@gmail.com",
+          "mode": "list",
+          "cachedResultName": "advarma2020@gmail.com"
+        },
+        "timeMin": "={{ $fromAI('start_time', 'Start time for availability check', 'string') }}",
+        "timeMax": "={{ $fromAI('end_time', 'End time for availability check', 'string') }}",
+        "options": {
+          "orderBy": "startTime",
+          "recurringEventHandling": "expand",
+          "showDeleted": false
+        }
+      },
+      "id": "0dc71d9f-c690-493c-8226-ab31ca5a06a4",
+      "name": "Doctor Schedule Tool",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        816,
+        368
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "eDjLLpzOjrIUMyFn",
+          "name": "Google Calendar account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "=dattucodes@gmail.com",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "intakeForm"
+              }
+            ]
+          }
+        }
+      },
+      "id": "62e5efa2-8dde-4939-b4b6-03ca0f4fee38",
+      "name": "Email Communication Tool",
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.1,
+      "position": [
+        944,
+        368
+      ],
+      "webhookId": "26cc98e2-0dc3-4436-b41d-463950c3e756",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Zky7NmnB44EbgKhh",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1BlTTpuwxp7uvlck4kJ_g2l9hKp19LVXZn6fn3I_VzEg",
+          "mode": "list",
+          "cachedResultName": "Mock Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BlTTpuwxp7uvlck4kJ_g2l9hKp19LVXZn6fn3I_VzEg/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 235291171,
+          "mode": "list",
+          "cachedResultName": "admin_sheets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BlTTpuwxp7uvlck4kJ_g2l9hKp19LVXZn6fn3I_VzEg/edit#gid=235291171"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Patient Name": "={{ $json.output.patientName }}",
+            "DOB": "={{ $json.output.dateOfBirth }}",
+            "Doctor": "={{ $json.output.doctorName }}",
+            "Date": "={{ $json.output.location }}",
+            "Time": "={{ $json.output.appointmentTime }}",
+            "Duration": "={{ $json.output.duration }}",
+            "Insurance": "={{ $json.output.insuranceCarrier }}",
+            "Booking ID": "={{ $json.bookingID }}",
+            "Timestamp": "={{ $json.timestamp }}",
+            "Location": "={{ $json.output.location }}",
+            "Forms Completed": "={{ $json.formsCompleted }}",
+            "Confirmation Status": "=",
+            "Reminders Sent": "={{ $json.remindersSent }}",
+            "output": "={{ $('AI Scheduling Agent').item.json.output }}",
+            "Status": "={{ $json.output.status }}",
+            "Patient Email": "{{ $json.output.patientEmail }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Patient Name",
+              "displayName": "Patient Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DOB",
+              "displayName": "DOB",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Doctor",
+              "displayName": "Doctor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Time",
+              "displayName": "Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Duration",
+              "displayName": "Duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Insurance",
+              "displayName": "Insurance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Booking ID",
+              "displayName": "Booking ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Patient Email",
+              "displayName": "Patient Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Forms Completed",
+              "displayName": "Forms Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reminders Sent",
+              "displayName": "Reminders Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Confirmation Status",
+              "displayName": "Confirmation Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "output",
+              "displayName": "output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "bookingID",
+              "displayName": "bookingID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "remindersSent",
+              "displayName": "remindersSent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "formsCompleted",
+              "displayName": "formsCompleted",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "8f9e62a8-8ba1-45ac-9f4e-1c33c0acad2e",
+      "name": "Admin Booking Export",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1504,
+        248
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "EdyTmyTXKxm3we3A",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "499410d2-373f-4eb6-8bd4-b739d265c1d3",
+      "name": "Reminder Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a medical appointment reminder assistant. Analyze appointment data and determine: 1) What type of reminder to send (simple vs advanced) 2) Check if forms are completed 3) Verify appointment confirmation status 4) Handle cancellation requests professionally. Always be empathetic and helpful.",
+          "maxIterations": 10,
+          "returnIntermediateSteps": false,
+          "passthroughBinaryImages": true,
+          "enableStreaming": true
+        }
+      },
+      "id": "908654a8-4d6b-48c7-9cf2-4808ead0b130",
+      "name": "Reminder Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        528,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "ec320c60-5548-4551-a1f2-3d1cb3457016",
+      "name": "Reminder Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        536,
+        904
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "llhGyRd5nkSaScGD",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\": \"object\", \"properties\": {\"reminderType\": {\"type\": \"string\", \"enum\": [\"simple\", \"advanced\"]}, \"formsCompleted\": {\"type\": \"boolean\"}, \"appointmentConfirmed\": {\"type\": \"boolean\"}, \"requiresFollowup\": {\"type\": \"boolean\"}, \"emailContent\": {\"type\": \"string\"}, \"subject\": {\"type\": \"string\"}}, \"required\": [\"reminderType\", \"emailContent\", \"subject\"]}"
+      },
+      "id": "81dc84cd-fa33-4143-9b06-c958f043d3aa",
+      "name": "Reminder Data Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        664,
+        904
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1BlTTpuwxp7uvlck4kJ_g2l9hKp19LVXZn6fn3I_VzEg",
+          "mode": "list",
+          "cachedResultName": "Mock Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BlTTpuwxp7uvlck4kJ_g2l9hKp19LVXZn6fn3I_VzEg/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 235291171,
+          "mode": "list",
+          "cachedResultName": "admin_sheets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BlTTpuwxp7uvlck4kJ_g2l9hKp19LVXZn6fn3I_VzEg/edit#gid=235291171"
+        },
+        "options": {}
+      },
+      "id": "80ca4cab-b7cb-4e51-8f3c-d6c8aea51cee",
+      "name": "Get Scheduled Appointments",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        304,
+        680
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "EdyTmyTXKxm3we3A",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.reminderType }}",
+                    "rightValue": "simple",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Simple Reminder"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.reminderType }}",
+                    "rightValue": "advanced",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Advanced Reminder"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none",
+          "ignoreCase": true
+        }
+      },
+      "id": "a3b9c5d7-cd9f-43cb-9fcf-561f97737ce9",
+      "name": "Reminder Type Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        880,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.patientEmail }}",
+        "subject": "Friendly Reminder: Your Upcoming Appointment",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;\">\n  <div style=\"background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\">\n    <h2 style=\"color: #2c5aa0; margin-bottom: 20px;\">Appointment Reminder</h2>\n    \n    <p style=\"font-size: 16px; color: #333; margin-bottom: 15px;\">Dear {{ $json.patientName }},</p>\n    \n    <p style=\"font-size: 16px; color: #333; margin-bottom: 20px;\">This is a friendly reminder about your upcoming appointment:</p>\n    \n    <div style=\"background-color: #f0f7ff; padding: 20px; border-radius: 8px; margin: 20px 0;\">\n      <p style=\"margin: 5px 0; font-size: 16px;\"><strong>Doctor:</strong> {{ $json.doctorName }}</p>\n      <p style=\"margin: 5px 0; font-size: 16px;\"><strong>Date:</strong> {{ $json.appointmentDate }}</p>\n      <p style=\"margin: 5px 0; font-size: 16px;\"><strong>Time:</strong> {{ $json.appointmentTime }}</p>\n      <p style=\"margin: 5px 0; font-size: 16px;\"><strong>Duration:</strong> {{ $json.duration }} minutes</p>\n      <p style=\"margin: 5px 0; font-size: 16px;\"><strong>Location:</strong> {{ $json.location }}</p>\n    </div>\n    \n    <p style=\"font-size: 16px; color: #333; margin-bottom: 15px;\">Please arrive 15 minutes early for check-in.</p>\n    \n    <p style=\"font-size: 16px; color: #333; margin-bottom: 15px;\">If you need to reschedule or cancel, please contact our office at least 24 hours in advance.</p>\n    \n    <p style=\"font-size: 16px; color: #333; margin-bottom: 20px;\">Thank you!</p>\n    \n    <div style=\"border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;\">\n      <p style=\"font-size: 14px; color: #666; margin: 0;\">Best regards,<br>Your Healthcare Team</p>\n    </div>\n  </div>\n</div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8078c6c6-0aef-4dd9-9e4a-5b37efa694c2",
+      "name": "Send Simple Reminder",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1104,
+        776
+      ],
+      "webhookId": "44deb273-01d9-424b-a183-bd7384b87895",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Zky7NmnB44EbgKhh",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Get Scheduled Appointments').item.json['Patient Email'] }}",
+        "subject": "=Important: Appointment Reminder & Required Forms - {{ $('Get Scheduled Appointments').item.json['Patient Name'] }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;\">\n  <div style=\"background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\">\n    <h2 style=\"color: #2c5aa0; margin-bottom: 20px;\">Appointment Reminder</h2>\n    \n    <p>Dear {{ $('Get Scheduled Appointments').item.json['Patient Name'] }},</p>\n    \n    <p>This is a reminder about your upcoming appointment:</p>\n    \n    <div style=\"background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0;\">\n      <h3 style=\"color: #2c5aa0; margin-top: 0;\">Appointment Details</h3>\n      <p><strong>Doctor:</strong> {{ $('Get Scheduled Appointments').item.json['Doctor'] }}</p>\n      <p><strong>Date:</strong> {{ $('Get Scheduled Appointments').item.json['Date'] }}</p>\n      <p><strong>Time:</strong> {{ $('Get Scheduled Appointments').item.json['Time'] }}</p>\n      <p><strong>Duration:</strong> {{ $('Get Scheduled Appointments').item.json['Duration'] }} minutes</p>\n      <p><strong>Location:</strong> {{ $('Get Scheduled Appointments').item.json['Location'] || 'Main Office' }}</p>\n    </div>\n    \n    <div style=\"background-color: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;\">\n      <h3 style=\"color: #856404; margin-top: 0;\">Action Required</h3>\n      <p><strong>Form Completion Status:</strong> \n        {{ $('Get Scheduled Appointments').item.json['Forms Completed'] === true ? '✅ Completed' : '❌ Pending' }}\n      </p>\n      \n      {{ $('Get Scheduled Appointments').item.json['Forms Completed'] !== true ? \n        '<p style=\"color: #856404;\"><strong>Please complete your intake forms before your appointment:</strong></p>\n        <ul style=\"color: #856404;\">\n          <li>Medical History Form</li>\n          <li>Insurance Verification</li>\n          <li>Consent Forms</li>\n        </ul>\n        <p><a href=\"#\" style=\"background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;\">Complete Forms Now</a></p>' : \n        '<p style=\"color: #28a745;\">✅ All required forms have been completed. Thank you!</p>' \n      }}\n    </div>\n    \n    <div style=\"background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;\">\n      <h3 style=\"color: #495057; margin-top: 0;\">Preparation Checklist</h3>\n      <ul style=\"color: #495057;\">\n        <li>Bring a valid photo ID</li>\n        <li>Bring your insurance card</li>\n        <li>Arrive 15 minutes early</li>\n        <li>Bring a list of current medications</li>\n        <li>Complete intake forms (if not done online)</li>\n      </ul>\n    </div>\n    \n    <div style=\"text-align: center; margin: 30px 0;\">\n      <a href=\"#\" style=\"background-color: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 5px;\">Confirm Appointment</a>\n      <a href=\"#\" style=\"background-color: #dc3545; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 5px;\">Reschedule</a>\n    </div>\n    \n    <p style=\"color: #6c757d; font-size: 14px; margin-top: 30px;\">If you need to cancel or reschedule, please contact us at least 24 hours in advance. For questions, call our office at (555) 123-4567.</p>\n    \n    <p>Best regards,<br>Your Healthcare Team</p>\n  </div>\n</div>",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Healthcare Appointment System"
+        }
+      },
+      "id": "7bc6153c-1940-4f45-8af8-0a15a0ed0fc9",
+      "name": "Send Advanced Reminder",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1104,
+        584
+      ],
+      "webhookId": "2ade92fe-ac8f-4d64-85d8-205b8656d94b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Zky7NmnB44EbgKhh",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "bookingID",
+              "value": "={{ 'BOOK-' + $now.format('yyyyMMdd') + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "status",
+              "value": "confirmed",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "remindersSent",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "id-5",
+              "name": "formsCompleted",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "0732e8d8-bcdc-47bd-be9e-d059e8db67b5",
+      "name": "Format Appointment Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1280,
+        248
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "4eaba510-3602-4418-a6eb-3b232228c93a",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        112,
+        80
+      ],
+      "id": "8734f060-86df-4876-9528-35d3de62fe3e",
+      "name": "Webhook",
+      "webhookId": "4eaba510-3602-4418-a6eb-3b232228c93a"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Patient Chat Interface": {
+      "main": [
+        [
+          {
+            "node": "AI Scheduling Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Scheduling Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Scheduling Agent",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Patient Chat Interface",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Appointment Data Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Scheduling Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Patient EMR Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Scheduling Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Doctor Schedule Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Scheduling Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Communication Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Scheduling Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Scheduling Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Appointment Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Appointment Data": {
+      "main": [
+        [
+          {
+            "node": "Admin Booking Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Scheduled Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Scheduled Appointments": {
+      "main": [
+        [
+          {
+            "node": "Reminder Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Reminder Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Data Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Reminder Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Agent": {
+      "main": [
+        [
+          {
+            "node": "Reminder Type Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Type Router": {
+      "main": [
+        [
+          {
+            "node": "Send Simple Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Advanced Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Scheduling Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "versionId": "154aa57c-687c-4cc0-a5cc-d526721a864b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9ad29402b28e530924484ac19eaf1c9666740310a5922a32016fd5012873cf07"
+  },
+  "id": "OurrCe2HoUIEYuEy",
+  "tags": []
+}
